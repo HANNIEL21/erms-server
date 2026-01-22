@@ -16,23 +16,24 @@ export class PaymentService {
 
   async initPayment(payload: any) {
 
-    const { user, price, document } = payload;
+    const { user, price, processing_fee, document } = payload;
+    const amount = Number(price) + Number(processing_fee);
 
     try {
       const paymentRecord = await this.prisma.payment.create({
         data: {
-          userId: user.id,
+          userId: user.id || user,
           status: "PENDING",
           gateway_name: "PAYSTACK",
-          totalAmount: Number(price)
+          totalAmount: amount
         }
       });
 
       const paystackInit = await this.paystack.initializePayment({
         email: user.email,
-        amount: Number(price) * 100, // Paystack expects kobo
+        amount: amount * 100, // Paystack expects kobo
         subaccount: this.configService.get("PAYSTACK_SUBACCOUNT"),
-        transaction_charge: Number(document.processing_fee) * 100,
+        transaction_charge: Number(document?.processing_fee || processing_fee) * 100,
         metadata: {
           payment_id: paymentRecord.id,
           user_id: user.id,
