@@ -44,7 +44,7 @@
         const user = await this.prisma.user.findFirst({ where: { email: data.email } });
 
         if (!user) {
-          return { staus: 404, message: "Invalid Login Credentials" }
+          return { status: 404, message: "Credentials not found." }
         }
 
         const matchPassword = await bcrypt.compare(data.password, user.password);
