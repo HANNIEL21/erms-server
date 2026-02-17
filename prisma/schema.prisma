@@ -30,31 +30,31 @@ model Role {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  firstname String
-  lastname  String
-  email     String     @unique
-  password  String
-  isActive  Boolean    @default(true)
-  refresh_token        String?
-  refresh_token_expiry DateTime?
-  last_login           DateTime?
+  id                    Int        @id @default(autoincrement())
+  firstname             String
+  lastname              String
+  email                 String     @unique
+  password              String
+  isActive              Boolean    @default(true)
+  refresh_token         String?
+  refresh_token_expiry  DateTime?
+  last_login            DateTime?
 
   // Foreign Key
-  roleId     Int?
-  role       Role?     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  roleId  Int?
+  role    Role?        @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
   // Relations
-  documents        Document[]
-  faculty          Faculty[]
-  departments      Department[]
-  templates        Template[]
-  component        Component[]
-  block            Block[]
-  combo            Combo[]
+  documents     Document[]
+  faculty       Faculty[]
+  departments   Department[]
+  combo         Combo[]
+  approvals     Approval[]
+  comments      Comment[]
+  approvalChains   ApprovalChain[] @relation("UserCreatedChains")
 
 
   // Indexes
@@ -100,29 +100,120 @@ model Alumni {
 }
 
 model Document {
-  id            Int       @id @default(autoincrement())
-  title         String    @unique
-  description   String?
-  status        String    @default("DRAFT") // PENDING, APPROVED, REJECTED, etc.
-  price         Int       @default(0)
-  processingFee Int       @default(0)
-  totalAmount   Int       @default(0)
-  
-  // Foreign key and relation
-  createdById   Int
-  createdBy     User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  id             Int       @id @default(autoincrement())
+  title          String    @unique
+  description    String?
+  status         String    @default("DRAFT") // DRAFT, PENDING, APPROVED, REJECTED
+  price          Int       @default(0)
+  processingFee  Int       @default(0)
+  totalAmount    Int       @default(0)
 
-  requests      Request[]
-  templates     Template[]
-  
-  // Timestamps
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  // Indexes
+  // Creator
+  createdById Int
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  // Approval Flow
+  approvalChainId Int?
+  approvalChain   ApprovalChain? @relation(fields: [approvalChainId], references: [id])
+
+  currentStepId   Int?
+  currentStep     ApprovalStep? @relation("CurrentStep", fields: [currentStepId], references: [id])
+
+  // Relations
+  approvals   Approval[]
+  comments    Comment[]
+  requests    Request[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
   @@index([createdById])
   @@index([status])
-  @@index([createdAt])
+  @@index([approvalChainId])
+}
+
+model ApprovalChain {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+
+  steps       ApprovalStep[]
+  documents   Document[]
+
+  isActive    Boolean   @default(true)
+
+  createdById Int
+  createdBy   User @relation("UserCreatedChains", fields: [createdById], references: [id])
+
+  createdAt   DateTime  @default(now())
+
+  @@index([isActive])
+}
+
+model ApprovalStep {
+  id          Int       @id @default(autoincrement())
+
+  chainId     Int
+  chain       ApprovalChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+
+  stepOrder   Int
+  name        String
+  description String?
+
+  // Approval Assignment
+  roleId   Int?
+  userId   Int?
+
+  // Options
+  canReject Boolean   @default(true)
+
+  // Relations
+  currentForDocuments Document[] @relation("CurrentStep")
+  approvals           Approval[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([chainId, stepOrder])
+  @@index([chainId])
+  @@index([roleId])
+  @@index([userId])
+}
+
+model Approval {
+  id          Int        @id @default(autoincrement())
+
+  documentId  Int
+  document    Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  stepId      Int
+  step        ApprovalStep @relation(fields: [stepId], references: [id])
+
+  userId      Int
+  user        User       @relation(fields: [userId], references: [id])
+
+  action      String     // APPROVE, REJECT
+  comment     String?
+
+  createdAt   DateTime   @default(now())
+
+  @@unique([documentId, stepId])
+  @@index([documentId])
+  @@index([userId])
+}
+
+model Comment {
+  id          Int       @id @default(autoincrement())
+  content     String
+
+  documentId  Int
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime  @default(now())
+
+  @@index([documentId])
 }
 
 model Request {
@@ -164,7 +255,7 @@ model Payment {
 
   // Foreign Key
   userId            Int
-  user              Alumni     @relation(fields: [userId], references: [id])
+  user              Alumni?     @relation(fields: [userId], references: [id])
 
   requestId         Int?
   request           Request?    @relation(fields: [requestId], references: [id]) 
@@ -219,115 +310,6 @@ model Department {
   @@index([facultyId])
   @@index([createdById])
   @@index([name])
-}
-
-model Template {
-  id            Int       @id @default(autoincrement())
-  name          String    @unique
-  description   String?
-  version       String
-  isActive      Boolean   @default(false)
-
-  // Relations
-  documentId    Int
-  document      Document  @relation(fields: [documentId], references: [id], onDelete: Restrict)
-
-  createdById   Int
-  createdBy     User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
-
-  components    TemplateComponent[]
-  versions      TemplateVersion[]
-
-  // Timestamps
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([isActive])
-  @@index([createdById])
-}
-
-model Component {
-  id            Int       @id @default(autoincrement())
-  name          String
-  description   String?
-  layoutType    String   // e.g. column, row, grid
-
-  // Relations
-  createdById   Int
-  createdBy     User     @relation(fields: [createdById], references: [id])
-
-  blocks        ComponentBlock[]
-  templates     TemplateComponent[]
-
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([name])
-  @@index([createdById])
-}
-
-model Block {
-  id            Int       @id @default(autoincrement())
-  name          String
-  blockType     String   // Typography, Image, Signature, QRCode
-  defaultValue  String?
-  isDynamic     Boolean  @default(false)
-
-  // Relations
-  createdById   Int
-  createdBy     User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
-
-  components    ComponentBlock[]
-
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([name])
-  @@index([blockType])
-}
-
-model ComponentBlock {
-  id           Int     @id @default(autoincrement())
-  position     Int
-
-  componentId  Int
-  component    Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
-
-  blockId      Int
-  block        Block     @relation(fields: [blockId], references: [id], onDelete: Restrict)
-
-  @@unique([componentId, position])
-  @@index([componentId])
-}
-
-model TemplateComponent {
-  id           Int     @id @default(autoincrement())
-  position     Int
-
-  templateId   Int
-  template     Template  @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  componentId  Int
-  component    Component @relation(fields: [componentId], references: [id], onDelete: Restrict)
-
-  @@unique([templateId, position])
-  @@index([templateId])
-}
-
-model TemplateVersion {
-  id            Int       @id @default(autoincrement())
-  version       String
-  snapshot      Json     // full rendered structure
-
-  templateId    Int
-  template      Template  @relation(fields: [templateId], references: [id], onDelete: Restrict)
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@unique([templateId, version])
 }
 
 model Combo{

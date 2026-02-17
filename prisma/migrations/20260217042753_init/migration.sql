@@ -73,13 +73,76 @@ CREATE TABLE `Document` (
     `processingFee` INTEGER NOT NULL DEFAULT 0,
     `totalAmount` INTEGER NOT NULL DEFAULT 0,
     `createdById` INTEGER NOT NULL,
+    `approvalChainId` INTEGER NULL,
+    `currentStepId` INTEGER NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `Document_title_key`(`title`),
     INDEX `Document_createdById_idx`(`createdById`),
     INDEX `Document_status_idx`(`status`),
-    INDEX `Document_createdAt_idx`(`createdAt`),
+    INDEX `Document_approvalChainId_idx`(`approvalChainId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `ApprovalChain` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `isActive` BOOLEAN NOT NULL DEFAULT true,
+    `createdById` INTEGER NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `ApprovalChain_name_key`(`name`),
+    INDEX `ApprovalChain_isActive_idx`(`isActive`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `ApprovalStep` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `chainId` INTEGER NOT NULL,
+    `stepOrder` INTEGER NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `description` VARCHAR(191) NULL,
+    `roleId` INTEGER NULL,
+    `userId` INTEGER NULL,
+    `canReject` BOOLEAN NOT NULL DEFAULT true,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `ApprovalStep_chainId_idx`(`chainId`),
+    INDEX `ApprovalStep_roleId_idx`(`roleId`),
+    INDEX `ApprovalStep_userId_idx`(`userId`),
+    UNIQUE INDEX `ApprovalStep_chainId_stepOrder_key`(`chainId`, `stepOrder`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Approval` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `documentId` INTEGER NOT NULL,
+    `stepId` INTEGER NOT NULL,
+    `userId` INTEGER NOT NULL,
+    `action` VARCHAR(191) NOT NULL,
+    `comment` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `Approval_documentId_idx`(`documentId`),
+    INDEX `Approval_userId_idx`(`userId`),
+    UNIQUE INDEX `Approval_documentId_stepId_key`(`documentId`, `stepId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Comment` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `content` VARCHAR(191) NOT NULL,
+    `documentId` INTEGER NOT NULL,
+    `userId` INTEGER NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `Comment_documentId_idx`(`documentId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -159,92 +222,6 @@ CREATE TABLE `Department` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `Template` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(191) NOT NULL,
-    `description` VARCHAR(191) NULL,
-    `version` VARCHAR(191) NOT NULL,
-    `isActive` BOOLEAN NOT NULL DEFAULT false,
-    `documentId` INTEGER NOT NULL,
-    `createdById` INTEGER NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `Template_name_key`(`name`),
-    INDEX `Template_isActive_idx`(`isActive`),
-    INDEX `Template_createdById_idx`(`createdById`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Component` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(191) NOT NULL,
-    `description` VARCHAR(191) NULL,
-    `layoutType` VARCHAR(191) NOT NULL,
-    `createdById` INTEGER NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    INDEX `Component_createdById_idx`(`createdById`),
-    UNIQUE INDEX `Component_name_key`(`name`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `Block` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(191) NOT NULL,
-    `blockType` VARCHAR(191) NOT NULL,
-    `defaultValue` VARCHAR(191) NULL,
-    `isDynamic` BOOLEAN NOT NULL DEFAULT false,
-    `createdById` INTEGER NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    INDEX `Block_blockType_idx`(`blockType`),
-    UNIQUE INDEX `Block_name_key`(`name`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `ComponentBlock` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `position` INTEGER NOT NULL,
-    `componentId` INTEGER NOT NULL,
-    `blockId` INTEGER NOT NULL,
-
-    INDEX `ComponentBlock_componentId_idx`(`componentId`),
-    UNIQUE INDEX `ComponentBlock_componentId_position_key`(`componentId`, `position`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `TemplateComponent` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `position` INTEGER NOT NULL,
-    `templateId` INTEGER NOT NULL,
-    `componentId` INTEGER NOT NULL,
-
-    INDEX `TemplateComponent_templateId_idx`(`templateId`),
-    UNIQUE INDEX `TemplateComponent_templateId_position_key`(`templateId`, `position`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `TemplateVersion` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `version` VARCHAR(191) NOT NULL,
-    `snapshot` JSON NOT NULL,
-    `templateId` INTEGER NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `TemplateVersion_templateId_version_key`(`templateId`, `version`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
 CREATE TABLE `Combo` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `firstname` VARCHAR(191) NOT NULL,
@@ -273,6 +250,33 @@ ALTER TABLE `Alumni` ADD CONSTRAINT `Alumni_roleId_fkey` FOREIGN KEY (`roleId`) 
 ALTER TABLE `Document` ADD CONSTRAINT `Document_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `Document` ADD CONSTRAINT `Document_approvalChainId_fkey` FOREIGN KEY (`approvalChainId`) REFERENCES `ApprovalChain`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Document` ADD CONSTRAINT `Document_currentStepId_fkey` FOREIGN KEY (`currentStepId`) REFERENCES `ApprovalStep`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `ApprovalChain` ADD CONSTRAINT `ApprovalChain_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `ApprovalStep` ADD CONSTRAINT `ApprovalStep_chainId_fkey` FOREIGN KEY (`chainId`) REFERENCES `ApprovalChain`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Approval` ADD CONSTRAINT `Approval_documentId_fkey` FOREIGN KEY (`documentId`) REFERENCES `Document`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Approval` ADD CONSTRAINT `Approval_stepId_fkey` FOREIGN KEY (`stepId`) REFERENCES `ApprovalStep`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Approval` ADD CONSTRAINT `Approval_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Comment` ADD CONSTRAINT `Comment_documentId_fkey` FOREIGN KEY (`documentId`) REFERENCES `Document`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `Comment` ADD CONSTRAINT `Comment_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `Request` ADD CONSTRAINT `Request_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `Alumni`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -292,33 +296,6 @@ ALTER TABLE `Department` ADD CONSTRAINT `Department_createdById_fkey` FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE `Department` ADD CONSTRAINT `Department_facultyId_fkey` FOREIGN KEY (`facultyId`) REFERENCES `Faculty`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `Template` ADD CONSTRAINT `Template_documentId_fkey` FOREIGN KEY (`documentId`) REFERENCES `Document`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `Template` ADD CONSTRAINT `Template_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `Component` ADD CONSTRAINT `Component_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `Block` ADD CONSTRAINT `Block_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `ComponentBlock` ADD CONSTRAINT `ComponentBlock_componentId_fkey` FOREIGN KEY (`componentId`) REFERENCES `Component`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `ComponentBlock` ADD CONSTRAINT `ComponentBlock_blockId_fkey` FOREIGN KEY (`blockId`) REFERENCES `Block`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `TemplateComponent` ADD CONSTRAINT `TemplateComponent_templateId_fkey` FOREIGN KEY (`templateId`) REFERENCES `Template`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `TemplateComponent` ADD CONSTRAINT `TemplateComponent_componentId_fkey` FOREIGN KEY (`componentId`) REFERENCES `Component`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `TemplateVersion` ADD CONSTRAINT `TemplateVersion_templateId_fkey` FOREIGN KEY (`templateId`) REFERENCES `Template`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `Combo` ADD CONSTRAINT `Combo_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

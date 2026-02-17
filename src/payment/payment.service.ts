@@ -16,13 +16,33 @@ export class PaymentService {
 
   async initPayment(payload: any) {
 
+    console.log(payload);
+
     const { user, price, processing_fee, document } = payload;
     const amount = Number(price) + Number(processing_fee);
+
+    const userId = typeof user === "object" ? user.id : user;
+    console.log('Extracted userId:', userId);
+    console.log('userId type:', typeof userId);
+
+    // Ensure userId exists in database
+    const existingUser = await this.prisma.alumni.findUnique({
+      where: { id: userId },
+    });
+
+    console.log(existingUser);
+
+    if (!existingUser) {
+      throw new HttpException(
+        `User with ID ${userId} does not exist`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     try {
       const paymentRecord = await this.prisma.payment.create({
         data: {
-          userId: user.id || user,
+          userId: userId,
           status: "PENDING",
           gateway_name: "PAYSTACK",
           totalAmount: amount
